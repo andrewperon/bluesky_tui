@@ -1,0 +1,19 @@
+[project]
+name = "bluesky-tui"
+version = "0.1.0"
+description = "A terminal UI client for Bluesky"
+requires-python = ">=3.11"
+dependencies = [
+    "textual>=0.89",
+    "atproto>=0.0.55",
+]
+
+[project.scripts]
+bluesky-tui = "bluesky_tui.__main__:main"
+
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
