@@ -8,13 +8,19 @@ class BlueskyApp(App):
     TITLE = "Bluesky TUI"
     CSS_PATH = "css/app.tcss"
 
-    def __init__(self) -> None:
+    def __init__(self, client=None) -> None:
         super().__init__()
-        self.client = BlueskyClient()
+        self.client = client if client is not None else BlueskyClient()
         self.settings: dict = load_settings()
 
     async def on_mount(self) -> None:
         self.theme = self.settings.get("theme", "textual-dark")
+
+        # If client is already authenticated (e.g. demo mode), skip login
+        if self.client.me:
+            from bluesky_tui.screens.feed import FeedScreen
+            self.push_screen(FeedScreen())
+            return
 
         from bluesky_tui.config import load_credentials
 
