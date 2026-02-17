@@ -2,6 +2,8 @@
 
 A terminal UI client for [Bluesky](https://bsky.app) built with Python, [Textual](https://textual.textualize.io/), and the [AT Protocol SDK](https://atproto.blue/).
 
+![](https://github.com/andrewperon/bluesky_tui/blob/mockup/screenshot.png)
+
 ## Features
 
 - Browse your home timeline with vim-style navigation
