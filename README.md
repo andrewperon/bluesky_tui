@@ -24,7 +24,7 @@ A terminal UI client for [Bluesky](https://bsky.app) built with Python, [Textual
 ## Installation
 
 ```bash
-git clone <repo-url>
+git clone https://github.com/andrewperon/bluesky_tui
 cd bluesky_tui
 pip install -e .
 ```
