@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from atproto import AsyncClient
 
-from bluesky_tui.api.models import PostData, ProfileData, ThreadData, NotificationData
+from bluesky_tui.api.models import PostData, ProfileData, ThreadData, NotificationData, MessageData, ConversationData
 
 
 def _has_media(embed) -> tuple[bool, bool]:
@@ -23,6 +23,7 @@ class BlueskyClient:
     def __init__(self):
         self._client = AsyncClient()
         self.me: ProfileData | None = None
+        self.__dm = None
 
     async def login(self, handle: str, app_password: str) -> None:
         profile = await self._client.login(handle, app_password)
@@ -44,11 +45,14 @@ class BlueskyClient:
         posts = []
         for item in resp.feed:
             post = item.post
+            # Skip posts from blocked/not-found authors (BlockedAuthor has no handle)
+            if not hasattr(post.author, "handle"):
+                continue
             record = post.record
             # Determine if this is a repost
             reason_repost_by = None
             if item.reason and hasattr(item.reason, "by"):
-                reason_repost_by = item.reason.by.handle
+                reason_repost_by = getattr(item.reason.by, "handle", None)
 
             viewer = post.viewer
 
@@ -57,8 +61,8 @@ class BlueskyClient:
             reply_parent_author = None
             reply_root_uri = None
             if item.reply and hasattr(item.reply, "parent") and hasattr(item.reply.parent, "author"):
-                reply_parent_uri = item.reply.parent.uri
-                reply_parent_author = item.reply.parent.author.handle
+                reply_parent_uri = getattr(item.reply.parent, "uri", None)
+                reply_parent_author = getattr(item.reply.parent.author, "handle", None)
             if item.reply and hasattr(item.reply, "root"):
                 reply_root_uri = getattr(item.reply.root, "uri", None)
 
@@ -265,6 +269,8 @@ class BlueskyClient:
         posts = []
         for item in resp.feed:
             post = item.post
+            if not hasattr(post.author, "handle"):
+                continue
             record = post.record
             viewer = post.viewer
             posts.append(PostData(
@@ -330,3 +336,93 @@ class BlueskyClient:
         from datetime import datetime, timezone
         now = datetime.now(timezone.utc).isoformat()
         await self._client.app.bsky.notification.update_seen({"seen_at": now})
+
+    @property
+    def _dm(self):
+        """Cached chat.bsky.convo proxy namespace."""
+        if self.__dm is None:
+            proxy = self._client.with_bsky_chat_proxy()
+            self.__dm = proxy.chat.bsky.convo
+        return self.__dm
+
+    async def list_conversations(self, cursor: str | None = None) -> tuple[list[ConversationData], str | None]:
+        params: dict = {"limit": 20}
+        if cursor:
+            params["cursor"] = cursor
+        resp = await self._dm.list_convos(params)
+        convos = []
+        for c in resp.convos:
+            last_msg = None
+            if c.last_message and hasattr(c.last_message, "text"):
+                lm = c.last_message
+                sender = getattr(lm, "sender", None)
+                sender_did = sender.did if sender else ""
+                last_msg = MessageData(
+                    id=lm.id,
+                    convo_id=c.id,
+                    sender_did=sender_did,
+                    sender_handle=getattr(sender, "handle", ""),
+                    sender_display_name=getattr(sender, "display_name", "") or "",
+                    text=lm.text,
+                    sent_at=lm.sent_at,
+                    is_mine=(sender_did == self.me.did if self.me else False),
+                )
+            members = [
+                {"did": m.did, "handle": m.handle, "display_name": m.display_name or ""}
+                for m in c.members
+            ]
+            convos.append(ConversationData(
+                id=c.id,
+                members=members,
+                last_message=last_msg,
+                unread_count=c.unread_count,
+                muted=c.muted,
+            ))
+        return convos, getattr(resp, "cursor", None)
+
+    async def get_messages(self, convo_id: str, cursor: str | None = None) -> tuple[list[MessageData], str | None]:
+        params: dict = {"convo_id": convo_id, "limit": 50}
+        if cursor:
+            params["cursor"] = cursor
+        resp = await self._dm.get_messages(params)
+        messages = []
+        for m in resp.messages:
+            if not hasattr(m, "text"):  # skip deleted/system messages
+                continue
+            sender = getattr(m, "sender", None)
+            sender_did = sender.did if sender else ""
+            messages.append(MessageData(
+                id=m.id,
+                convo_id=convo_id,
+                sender_did=sender_did,
+                sender_handle=getattr(sender, "handle", ""),
+                sender_display_name=getattr(sender, "display_name", "") or "",
+                text=m.text,
+                sent_at=m.sent_at,
+                is_mine=(sender_did == self.me.did if self.me else False),
+            ))
+        # API returns newest-first; reverse for chronological display
+        messages.reverse()
+        return messages, getattr(resp, "cursor", None)
+
+    async def send_dm(self, convo_id: str, text: str) -> MessageData:
+        from atproto import models as atproto_models
+        resp = await self._dm.send_message(
+            atproto_models.ChatBskyConvoSendMessage.Data(
+                convo_id=convo_id,
+                message=atproto_models.ChatBskyConvoDefs.MessageInput(text=text),
+            )
+        )
+        return MessageData(
+            id=resp.id,
+            convo_id=convo_id,
+            sender_did=self.me.did if self.me else "",
+            sender_handle=self.me.handle if self.me else "",
+            sender_display_name=self.me.display_name if self.me else "",
+            text=resp.text,
+            sent_at=resp.sent_at,
+            is_mine=True,
+        )
+
+    async def mark_convo_read(self, convo_id: str, message_id: str) -> None:
+        await self._dm.update_read({"convo_id": convo_id, "message_id": message_id})

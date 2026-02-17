@@ -33,6 +33,41 @@ Footer {
     height: 1;
 }
 
+/* DM screens */
+#conversations-title {
+    text-style: bold;
+    padding: 0 1;
+    background: $surface-lighten-1;
+    height: 1;
+}
+
+#convo-title {
+    text-style: bold;
+    padding: 0 1;
+    background: $surface-lighten-1;
+    height: 1;
+}
+
+#message-list {
+    height: 1fr;
+}
+
+#message-compose-bar {
+    dock: bottom;
+    height: 3;
+    background: $surface;
+    padding: 0 1;
+}
+
+#message-compose-bar #message-input {
+    width: 1fr;
+}
+
+#message-compose-bar #send-button {
+    width: auto;
+    min-width: 8;
+}
+
 /* Compact density: tighter post spacing */
 .compact-density PostWidget {
     padding: 0 1 0 1;

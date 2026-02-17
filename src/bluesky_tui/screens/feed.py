@@ -27,6 +27,7 @@ class FeedScreen(Screen):
         Binding("d", "delete_post", "Delete"),
         Binding("u", "my_profile", "Me"),
         Binding("n", "notifications", "Notifs"),
+        Binding("m", "messages", "Messages"),
         Binding("s", "settings", "Settings"),
         Binding("f", "cycle_filter", "Filter"),
         Binding("space", "load_more", "More", show=False),
@@ -277,6 +278,10 @@ class FeedScreen(Screen):
     def action_notifications(self) -> None:
         from bluesky_tui.screens.notifications import NotificationsScreen
         self.app.push_screen(NotificationsScreen())
+
+    def action_messages(self) -> None:
+        from bluesky_tui.screens.conversations import ConversationsScreen
+        self.app.push_screen(ConversationsScreen())
 
     def action_switch_account(self) -> None:
         from bluesky_tui.screens.account_switcher import AccountSwitcherScreen

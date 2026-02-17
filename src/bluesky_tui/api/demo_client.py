@@ -3,7 +3,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime, timezone, timedelta
 
-from bluesky_tui.api.models import PostData, ProfileData, ThreadData, NotificationData
+from bluesky_tui.api.models import PostData, ProfileData, ThreadData, NotificationData, MessageData, ConversationData
 
 # ---------------------------------------------------------------------------
 # Mock users
@@ -197,6 +197,85 @@ def _build_notifications(posts: list[PostData]) -> list[NotificationData]:
 
 
 # ---------------------------------------------------------------------------
+# Build mock conversations + messages
+# ---------------------------------------------------------------------------
+
+_CONVO_IDS = ["convo0001", "convo0002", "convo0003"]
+
+
+def _build_conversations_and_messages(
+    demo_did: str,
+) -> tuple[list[ConversationData], dict[str, list[MessageData]]]:
+    demo_user_member = {"did": _DEMO_USER[0], "handle": _DEMO_USER[1], "display_name": _DEMO_USER[2]}
+
+    convo_defs = [
+        # (convo_idx, other_user_idx, unread_count, message_defs)
+        # message_defs: list of (is_mine, text, hours_ago)
+        (0, 0, 2, [
+            (False, "Hey! Saw your post about the AT Protocol library — really impressive work.", 6.0),
+            (True, "Thanks! It's been a wild ride. Six months feels like a lifetime in software time.", 5.8),
+            (False, "Haha no kidding. Are you planning to add WebSocket support in the next version?", 5.5),
+            (True, "That's actually on the roadmap for Q2. Want to collaborate on the spec?", 5.0),
+            (False, "Absolutely, count me in. I'll DM you my calendar link.", 4.5),
+            (True, "Perfect. Looking forward to it!", 4.0),
+            (False, "Also — congrats on the 10k milestone! Huge deal.", 0.5),
+            (True, "Ha, honestly didn't expect it to happen this fast. The community here is something else.", 0.2),
+        ]),
+        (1, 2, 0, [
+            (False, "Hi Alice! Did you see the Textual 1.0 announcement?", 48.0),
+            (True, "YES. I've been waiting for this. We should do a proper writeup.", 47.5),
+            (False, "100%. I can draft the intro if you cover the new features?", 47.0),
+            (True, "Deal. Let's sync up Thursday?", 46.5),
+            (False, "Thursday works. I'll send a calendar invite.", 46.0),
+            (True, "Great, see you then!", 45.5),
+        ]),
+        (2, 4, 1, [
+            (False, "Quick question — what's your take on async vs threads for TUI apps?", 72.0),
+            (True, "Async all the way. Threads with UI state are a debugging nightmare.", 71.5),
+            (False, "Yeah, I figured. Had a gnarly race condition last week and it took me two days.", 71.0),
+            (True, "Classic. What framework were you using?", 70.5),
+            (False, "tkinter, don't judge me 😅", 70.0),
+            (True, "No judgment! tkinter is fine for quick stuff. But if you want to go terminal, try Textual.", 69.5),
+            (False, "Already on it after your post! This bluesky_tui project is great inspiration.", 1.0),
+        ]),
+    ]
+
+    all_convos: list[ConversationData] = []
+    all_messages: dict[str, list[MessageData]] = {}
+
+    for convo_idx, other_user_idx, unread_count, msg_defs in convo_defs:
+        convo_id = _CONVO_IDS[convo_idx]
+        other = _USERS[other_user_idx]
+        other_member = {"did": other[0], "handle": other[1], "display_name": other[2]}
+
+        messages: list[MessageData] = []
+        for i, (is_mine, text, hours_ago) in enumerate(msg_defs):
+            sender = _DEMO_USER if is_mine else other
+            messages.append(MessageData(
+                id=f"{convo_id}_msg{i:04d}",
+                convo_id=convo_id,
+                sender_did=sender[0],
+                sender_handle=sender[1],
+                sender_display_name=sender[2],
+                text=text,
+                sent_at=_ts(hours_ago),
+                is_mine=is_mine,
+            ))
+
+        last_msg = messages[-1] if messages else None
+        all_convos.append(ConversationData(
+            id=convo_id,
+            members=[demo_user_member, other_member],
+            last_message=last_msg,
+            unread_count=unread_count,
+            muted=False,
+        ))
+        all_messages[convo_id] = messages
+
+    return all_convos, all_messages
+
+
+# ---------------------------------------------------------------------------
 # DemoClient
 # ---------------------------------------------------------------------------
 
@@ -220,6 +299,7 @@ class DemoClient:
         self._posts = _build_posts()
         self._profiles = _build_profiles()
         self._notifications = _build_notifications(self._posts)
+        self._conversations, self._messages = _build_conversations_and_messages(did)
 
     # -- Auth ---------------------------------------------------------------
 
@@ -408,3 +488,45 @@ class DemoClient:
 
     async def resolve_repost_uri(self, repost_uri: str) -> str | None:
         return self._posts[0].uri if self._posts else None
+
+    # -- Direct Messages ----------------------------------------------------
+
+    async def list_conversations(
+        self, cursor: str | None = None,
+    ) -> tuple[list[ConversationData], str | None]:
+        start = int(cursor) if cursor else 0
+        end = start + 20
+        chunk = self._conversations[start:end]
+        next_cursor = str(end) if end < len(self._conversations) else None
+        return chunk, next_cursor
+
+    async def get_messages(
+        self, convo_id: str, cursor: str | None = None,
+    ) -> tuple[list[MessageData], str | None]:
+        all_msgs = self._messages.get(convo_id, [])
+        # Messages stored oldest-first; API would return newest-first then reversed
+        # For demo, just paginate from end
+        start = int(cursor) if cursor else 0
+        end = start + 50
+        chunk = all_msgs[start:end]
+        next_cursor = str(end) if end < len(all_msgs) else None
+        return chunk, next_cursor
+
+    async def send_dm(self, convo_id: str, text: str) -> MessageData:
+        msg_id = uuid.uuid4().hex[:12]
+        msg = MessageData(
+            id=msg_id,
+            convo_id=convo_id,
+            sender_did=self.me.did,
+            sender_handle=self.me.handle,
+            sender_display_name=self.me.display_name,
+            text=text,
+            sent_at=datetime.now(timezone.utc).isoformat(),
+            is_mine=True,
+        )
+        if convo_id in self._messages:
+            self._messages[convo_id].append(msg)
+        return msg
+
+    async def mark_convo_read(self, convo_id: str, message_id: str) -> None:
+        pass
