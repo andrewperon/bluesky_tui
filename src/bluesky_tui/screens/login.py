@@ -82,8 +82,8 @@ class LoginScreen(Screen):
         try:
             await self.app.client.login(handle, password)
             if save_checkbox.value:
-                from bluesky_tui.config import save_credentials
-                save_credentials(handle, password)
+                from bluesky_tui.config import add_account
+                add_account(handle, password)
             from bluesky_tui.screens.feed import FeedScreen
             self.app.switch_screen(FeedScreen())
         except Exception as e:

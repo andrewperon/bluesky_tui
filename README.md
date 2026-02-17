@@ -12,6 +12,7 @@ A terminal UI client for [Bluesky](https://bsky.app) built with Python, [Textual
 - View and navigate notifications
 - Feed filters: all posts, posts only (no replies/reposts), text only (no images/videos)
 - Settings screen with theme switching, post density, feed defaults, and notification filters
+- Multi-account support with quick switching (`a` key)
 - Saved credentials with auto-login
 - Persistent settings stored independently from credentials
 
@@ -53,6 +54,7 @@ On first launch you'll be prompted for your Bluesky handle and app password. Che
 | `u` | View your profile |
 | `d` | Delete own post |
 | `n` | View notifications |
+| `a` | Switch account |
 | `s` | Open settings |
 | `f` | Cycle feed filter (all / posts only / text only) |
 | `Space` | Load more posts |
@@ -122,6 +124,7 @@ src/bluesky_tui/
     compose.py           # New post / reply / quote (modal)
     profile.py           # User profile + posts
     notifications.py     # Notification list
+    account_switcher.py  # Account switcher screen
     settings.py          # Settings screen
   widgets/
     post.py              # Single post widget

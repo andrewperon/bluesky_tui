@@ -111,6 +111,7 @@ class SettingsScreen(Screen):
             name = self.app.client.me.display_name or self.app.client.me.handle
             handle = f"{name} (@{self.app.client.me.handle})"
         lv.append(SettingItem("account_info", "Logged in as", handle))
+        lv.append(SettingItem("switch_account", "Switch account", "press enter"))
         lv.append(SettingItem("log_out", "Log out", "press enter"))
 
         # Display section
@@ -158,6 +159,11 @@ class SettingsScreen(Screen):
         key = child.setting_key
 
         if key == "account_info":
+            return
+
+        if key == "switch_account":
+            from bluesky_tui.screens.account_switcher import AccountSwitcherScreen
+            self.app.push_screen(AccountSwitcherScreen())
             return
 
         if key == "log_out":

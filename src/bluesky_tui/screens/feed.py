@@ -31,6 +31,7 @@ class FeedScreen(Screen):
         Binding("f", "cycle_filter", "Filter"),
         Binding("space", "load_more", "More", show=False),
         Binding("R", "refresh_feed", "Refresh"),
+        Binding("a", "switch_account", "Accounts"),
         Binding("q", "quit", "Quit"),
     ]
 
@@ -276,6 +277,10 @@ class FeedScreen(Screen):
     def action_notifications(self) -> None:
         from bluesky_tui.screens.notifications import NotificationsScreen
         self.app.push_screen(NotificationsScreen())
+
+    def action_switch_account(self) -> None:
+        from bluesky_tui.screens.account_switcher import AccountSwitcherScreen
+        self.app.push_screen(AccountSwitcherScreen())
 
     def action_settings(self) -> None:
         from bluesky_tui.screens.settings import SettingsScreen

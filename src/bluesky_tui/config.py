@@ -54,65 +54,146 @@ def save_settings(settings: dict) -> None:
         log.warning("Failed to save settings: %s", e)
 
 
-def load_credentials() -> dict | None:
-    """Load credentials from system keyring, falling back to legacy config file."""
-    # Try keyring first
+# ---------------------------------------------------------------------------
+# Multi-account storage
+# ---------------------------------------------------------------------------
+
+def load_accounts() -> dict:
+    """Load the multi-account blob from keyring.
+
+    Migrates from the old single-account ``"credentials"`` key and legacy
+    config file if needed.
+
+    Returns a dict with ``"active"`` (str | None) and ``"accounts"`` (list).
+    """
+    # Try new "accounts" key first
+    try:
+        blob = keyring.get_password(SERVICE_NAME, "accounts")
+        if blob:
+            data = json.loads(blob)
+            if "accounts" in data:
+                return data
+    except Exception as e:
+        log.debug("Keyring read (accounts) failed: %s", e)
+
+    # Migrate from old "credentials" key
     try:
         blob = keyring.get_password(SERVICE_NAME, "credentials")
         if blob:
-            data = json.loads(blob)
-            if data.get("handle") and data.get("app_password"):
-                return data
+            old = json.loads(blob)
+            if old.get("handle") and old.get("app_password"):
+                new_data = {
+                    "active": old["handle"],
+                    "accounts": [
+                        {"handle": old["handle"], "app_password": old["app_password"]}
+                    ],
+                }
+                save_accounts(new_data)
+                try:
+                    keyring.delete_password(SERVICE_NAME, "credentials")
+                except Exception:
+                    pass
+                return new_data
     except Exception as e:
-        log.debug("Keyring read failed: %s", e)
+        log.debug("Keyring read (credentials) failed: %s", e)
 
-    # Fall back to legacy plaintext config
+    # Migrate from legacy plaintext config file
     if CONFIG_FILE.exists():
         try:
-            data = json.loads(CONFIG_FILE.read_text())
-            if data.get("handle") and data.get("app_password"):
-                # Migrate to keyring
-                _save_to_keyring(data["handle"], data["app_password"])
+            old = json.loads(CONFIG_FILE.read_text())
+            if old.get("handle") and old.get("app_password"):
+                new_data = {
+                    "active": old["handle"],
+                    "accounts": [
+                        {"handle": old["handle"], "app_password": old["app_password"]}
+                    ],
+                }
+                save_accounts(new_data)
                 _remove_legacy_config()
-                return data
+                return new_data
         except (json.JSONDecodeError, KeyError):
             pass
 
+    return {"active": None, "accounts": []}
+
+
+def save_accounts(data: dict) -> None:
+    """Save the multi-account blob to keyring."""
+    try:
+        keyring.set_password(SERVICE_NAME, "accounts", json.dumps(data))
+    except Exception as e:
+        log.warning("Keyring write (accounts) failed: %s", e)
+
+
+def get_active_credentials() -> dict | None:
+    """Return ``{"handle", "app_password"}`` for the active account, or None."""
+    data = load_accounts()
+    active = data.get("active")
+    if not active:
+        return None
+    for acct in data.get("accounts", []):
+        if acct["handle"] == active:
+            return {"handle": acct["handle"], "app_password": acct["app_password"]}
     return None
 
 
+def add_account(handle: str, app_password: str) -> None:
+    """Add or update an account and set it as active."""
+    data = load_accounts()
+    # Update existing or append
+    found = False
+    for acct in data["accounts"]:
+        if acct["handle"] == handle:
+            acct["app_password"] = app_password
+            found = True
+            break
+    if not found:
+        data["accounts"].append({"handle": handle, "app_password": app_password})
+    data["active"] = handle
+    save_accounts(data)
+
+
+def remove_account(handle: str) -> None:
+    """Remove an account. If it was active, set the next one (or clear)."""
+    data = load_accounts()
+    data["accounts"] = [a for a in data["accounts"] if a["handle"] != handle]
+    if data.get("active") == handle:
+        data["active"] = data["accounts"][0]["handle"] if data["accounts"] else None
+    save_accounts(data)
+
+
+def set_active_account(handle: str) -> None:
+    """Set which account is active."""
+    data = load_accounts()
+    data["active"] = handle
+    save_accounts(data)
+
+
+# ---------------------------------------------------------------------------
+# Backward-compatible wrappers
+# ---------------------------------------------------------------------------
+
+def load_credentials() -> dict | None:
+    """Load credentials for the active account.
+
+    Thin wrapper around :func:`get_active_credentials` so that the existing
+    app startup code continues to work unchanged.
+    """
+    return get_active_credentials()
+
+
 def save_credentials(handle: str, app_password: str) -> None:
-    """Save credentials to system keyring."""
-    _save_to_keyring(handle, app_password)
-    # Remove legacy plaintext file if it exists
-    _remove_legacy_config()
+    """Save credentials (adds/updates account and sets it active)."""
+    add_account(handle, app_password)
 
 
 def clear_credentials() -> None:
-    """Remove credentials from keyring and any legacy config file."""
-    try:
-        keyring.delete_password(SERVICE_NAME, "credentials")
-    except Exception as e:
-        log.debug("Keyring delete failed: %s", e)
+    """Remove the active account and delete legacy artefacts."""
+    data = load_accounts()
+    active = data.get("active")
+    if active:
+        remove_account(active)
     _remove_legacy_config()
-
-
-def _save_to_keyring(handle: str, app_password: str) -> None:
-    blob = json.dumps({"handle": handle, "app_password": app_password})
-    try:
-        keyring.set_password(SERVICE_NAME, "credentials", blob)
-    except Exception as e:
-        log.warning("Keyring write failed, falling back to config file: %s", e)
-        _save_to_file(handle, app_password)
-
-
-def _save_to_file(handle: str, app_password: str) -> None:
-    CONFIG_DIR.mkdir(parents=True, exist_ok=True)
-    CONFIG_FILE.write_text(json.dumps({
-        "handle": handle,
-        "app_password": app_password,
-    }))
-    CONFIG_FILE.chmod(0o600)
 
 
 def _remove_legacy_config() -> None:
