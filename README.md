@@ -26,7 +26,9 @@ A terminal UI client for [Bluesky](https://bsky.app) built with Python, [Textual
 ```bash
 git clone https://github.com/andrewperon/bluesky_tui
 cd bluesky_tui
-pip install -e .
+python -m venv .venv
+source .venv/bin/activate
+pip install .
 ```
 
 ## Usage
@@ -35,7 +37,13 @@ pip install -e .
 python -m bluesky_tui
 ```
 
-On first launch you'll be prompted for your Bluesky handle and app password. Check "Save credentials" to auto-login on future launches. Credentials are stored in `~/.config/bluesky_tui/config.json`.
+On first launch you'll be prompted for your Bluesky handle and app password. Check "Save credentials" to auto-login on future launches. Credentials are stored securely in your system keyring.
+
+To run with mock data (for screenshots or trying the UI without an account):
+
+```bash
+python -m bluesky_tui --demo
+```
 
 ## Key Bindings
 
