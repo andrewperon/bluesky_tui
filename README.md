@@ -50,6 +50,7 @@ On first launch you'll be prompted for your Bluesky handle and app password. Che
 | `r` | Reply to post |
 | `c` | Compose new post |
 | `p` | View author profile |
+| `u` | View your profile |
 | `d` | Delete own post |
 | `n` | View notifications |
 | `s` | Open settings |

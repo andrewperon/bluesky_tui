@@ -22,7 +22,7 @@ def _group_notifications(
     while i < len(notifications):
         n = notifications[i]
         # Only group likes and reposts
-        if n.reason in ("like", "repost") and n.subject_uri:
+        if n.reason in ("like", "like-via-repost", "repost") and n.subject_uri:
             group = [n]
             j = i + 1
             while j < len(notifications):
@@ -80,7 +80,13 @@ class NotificationsScreen(Screen):
 
     def _filter_by_type(self, notifications: list[NotificationData]) -> list[NotificationData]:
         nf = self.app.settings.get("notification_filters", {})
-        return [n for n in notifications if nf.get(n.reason, True)]
+        def _is_enabled(n: NotificationData) -> bool:
+            reason = n.reason
+            # "like-via-repost" follows the "like" filter toggle
+            if reason == "like-via-repost":
+                reason = "like"
+            return nf.get(reason, True)
+        return [n for n in notifications if _is_enabled(n)]
 
     def _rebuild_list(self) -> None:
         notif_list = self.query_one("#notif-list", ListView)
@@ -111,25 +117,37 @@ class NotificationsScreen(Screen):
     def action_cursor_up(self) -> None:
         self.query_one("#notif-list", ListView).action_cursor_up()
 
-    def action_open_notification(self) -> None:
-        notif_list = self.query_one("#notif-list", ListView)
-        child = notif_list.highlighted_child
-        if not child:
-            return
-
-        data = None
-        if isinstance(child, (NotificationItem, GroupedNotificationItem)):
-            data = child.data
-
+    def _open_notification(self, child: NotificationItem | GroupedNotificationItem) -> None:
+        data = child.data
         if not data:
             return
-
-        if data.reason in ("like", "repost", "reply", "mention", "quote") and data.subject_uri:
+        if data.reason == "like-via-repost" and data.subject_uri:
+            self._open_repost_notification(data.subject_uri)
+        elif data.reason in ("like", "repost", "reply", "mention", "quote") and data.subject_uri:
             from bluesky_tui.screens.thread import ThreadScreen
             self.app.push_screen(ThreadScreen(data.subject_uri))
         elif data.reason == "follow":
             from bluesky_tui.screens.profile import ProfileScreen
             self.app.push_screen(ProfileScreen(data.author_did))
+
+    @work
+    async def _open_repost_notification(self, repost_uri: str) -> None:
+        post_uri = await self.app.client.resolve_repost_uri(repost_uri)
+        if post_uri:
+            from bluesky_tui.screens.thread import ThreadScreen
+            self.app.push_screen(ThreadScreen(post_uri))
+        else:
+            self.app.notify("Could not resolve repost to original post.", severity="warning")
+
+    def on_list_view_selected(self, event: ListView.Selected) -> None:
+        if isinstance(event.item, (NotificationItem, GroupedNotificationItem)):
+            self._open_notification(event.item)
+
+    def action_open_notification(self) -> None:
+        notif_list = self.query_one("#notif-list", ListView)
+        child = notif_list.highlighted_child
+        if isinstance(child, (NotificationItem, GroupedNotificationItem)):
+            self._open_notification(child)
 
     def action_view_profile(self) -> None:
         notif_list = self.query_one("#notif-list", ListView)

@@ -14,6 +14,7 @@ REASON_ICONS = {
     "mention": "[yellow]@[/yellow]",
     "reply": "[cyan]💬[/cyan]",
     "quote": "[magenta]❝[/magenta]",
+    "like-via-repost": "[red]❤[/red][green]↻[/green]",
 }
 
 REASON_VERBS = {
@@ -23,6 +24,7 @@ REASON_VERBS = {
     "mention": "mentioned you",
     "reply": "replied to you",
     "quote": "quoted your post",
+    "like-via-repost": "liked your repost",
 }
 
 

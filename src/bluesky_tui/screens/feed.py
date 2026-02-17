@@ -25,6 +25,7 @@ class FeedScreen(Screen):
         Binding("p", "view_profile", "Profile"),
         Binding("w", "view_on_web", "Web"),
         Binding("d", "delete_post", "Delete"),
+        Binding("u", "my_profile", "Me"),
         Binding("n", "notifications", "Notifs"),
         Binding("s", "settings", "Settings"),
         Binding("f", "cycle_filter", "Filter"),
@@ -266,6 +267,11 @@ class FeedScreen(Screen):
         self._cursor = None
         self._all_posts.clear()
         self._load_timeline()
+
+    def action_my_profile(self) -> None:
+        if self.app.client.me:
+            from bluesky_tui.screens.profile import ProfileScreen
+            self.app.push_screen(ProfileScreen(self.app.client.me.did))
 
     def action_notifications(self) -> None:
         from bluesky_tui.screens.notifications import NotificationsScreen

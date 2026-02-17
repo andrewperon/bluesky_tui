@@ -165,6 +165,24 @@ class BlueskyClient:
             has_video=False,
         )
 
+    async def resolve_repost_uri(self, repost_uri: str) -> str | None:
+        """Given a repost AT URI, fetch the record and return the original post URI."""
+        try:
+            # Parse AT URI: at://did/collection/rkey
+            parts = repost_uri.removeprefix("at://").split("/", 2)
+            if len(parts) != 3:
+                return None
+            repo, collection, rkey = parts
+            resp = await self._client.com.atproto.repo.get_record(
+                {"repo": repo, "collection": collection, "rkey": rkey}
+            )
+            subject = getattr(resp.value, "subject", None)
+            if subject and hasattr(subject, "uri"):
+                return subject.uri
+        except Exception:
+            pass
+        return None
+
     async def get_post_thread(self, uri: str) -> ThreadData:
         resp = await self._client.get_post_thread(uri, depth=10, parent_height=10)
         thread = resp.thread
