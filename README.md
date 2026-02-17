@@ -11,7 +11,9 @@ A terminal UI client for [Bluesky](https://bsky.app) built with Python, [Textual
 - View user profiles and follow/unfollow
 - View and navigate notifications
 - Feed filters: all posts, posts only (no replies/reposts), text only (no images/videos)
+- Settings screen with theme switching, post density, feed defaults, and notification filters
 - Saved credentials with auto-login
+- Persistent settings stored independently from credentials
 
 ## Requirements
 
@@ -50,6 +52,7 @@ On first launch you'll be prompted for your Bluesky handle and app password. Che
 | `p` | View author profile |
 | `d` | Delete own post |
 | `n` | View notifications |
+| `s` | Open settings |
 | `f` | Cycle feed filter (all / posts only / text only) |
 | `Space` | Load more posts |
 | `R` | Refresh feed |
@@ -86,6 +89,15 @@ On first launch you'll be prompted for your Bluesky handle and app password. Che
 | `Space` | Load more |
 | `Escape` / `q` | Back |
 
+### Settings
+
+| Key | Action |
+|---|---|
+| `j` / `k` | Navigate |
+| `Enter` | Cycle / toggle setting |
+| `y` / `n` | Confirm / cancel log out |
+| `Escape` / `q` | Back |
+
 ### Compose
 
 | Key | Action |
@@ -98,7 +110,7 @@ On first launch you'll be prompted for your Bluesky handle and app password. Che
 src/bluesky_tui/
   __main__.py            # Entry point
   app.py                 # Main Textual App
-  config.py              # Credential storage
+  config.py              # Credential + settings storage
   api/
     client.py            # Async wrapper around atproto
     models.py            # Data classes (PostData, ProfileData, etc.)
@@ -109,6 +121,7 @@ src/bluesky_tui/
     compose.py           # New post / reply / quote (modal)
     profile.py           # User profile + posts
     notifications.py     # Notification list
+    settings.py          # Settings screen
   widgets/
     post.py              # Single post widget
     post_list.py         # Scrollable post container

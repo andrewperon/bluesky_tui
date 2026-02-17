@@ -10,6 +10,49 @@ CONFIG_FILE = CONFIG_DIR / "config.json"
 
 log = logging.getLogger(__name__)
 
+DEFAULT_SETTINGS: dict = {
+    "theme": "textual-dark",
+    "post_density": "normal",
+    "default_filter": "all",
+    "posts_per_page": 30,
+    "notification_filters": {
+        "like": True,
+        "repost": True,
+        "reply": True,
+        "follow": True,
+        "mention": True,
+        "quote": True,
+    },
+}
+
+
+def load_settings() -> dict:
+    """Load settings from keyring, returning defaults for any missing keys."""
+    settings = dict(DEFAULT_SETTINGS)
+    try:
+        blob = keyring.get_password(SERVICE_NAME, "settings")
+        if blob:
+            stored = json.loads(blob)
+            for key, value in stored.items():
+                if key == "notification_filters" and isinstance(value, dict):
+                    settings["notification_filters"] = {
+                        **DEFAULT_SETTINGS["notification_filters"],
+                        **value,
+                    }
+                else:
+                    settings[key] = value
+    except Exception as e:
+        log.debug("Failed to load settings: %s", e)
+    return settings
+
+
+def save_settings(settings: dict) -> None:
+    """Save settings to keyring."""
+    try:
+        keyring.set_password(SERVICE_NAME, "settings", json.dumps(settings))
+    except Exception as e:
+        log.warning("Failed to save settings: %s", e)
+
 
 def load_credentials() -> dict | None:
     """Load credentials from system keyring, falling back to legacy config file."""

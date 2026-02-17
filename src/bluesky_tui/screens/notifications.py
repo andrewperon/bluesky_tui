@@ -78,10 +78,15 @@ class NotificationsScreen(Screen):
         else:
             title.update("Notifications")
 
+    def _filter_by_type(self, notifications: list[NotificationData]) -> list[NotificationData]:
+        nf = self.app.settings.get("notification_filters", {})
+        return [n for n in notifications if nf.get(n.reason, True)]
+
     def _rebuild_list(self) -> None:
         notif_list = self.query_one("#notif-list", ListView)
         notif_list.clear()
-        items = _group_notifications(self._all_notifications)
+        filtered = self._filter_by_type(self._all_notifications)
+        items = _group_notifications(filtered)
         for item in items:
             notif_list.append(item)
 

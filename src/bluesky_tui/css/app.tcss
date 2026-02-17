@@ -32,3 +32,15 @@ Footer {
     background: $surface-lighten-1;
     height: 1;
 }
+
+/* Compact density: tighter post spacing */
+.compact-density PostWidget {
+    padding: 0 1 0 1;
+    border-bottom: none;
+}
+.compact-density PostWidget > .post-text {
+    padding: 0;
+}
+.compact-density PostWidget > .post-stats {
+    padding: 0;
+}

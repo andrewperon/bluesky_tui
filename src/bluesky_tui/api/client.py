@@ -39,8 +39,8 @@ class BlueskyClient:
             follow_uri=None,
         )
 
-    async def get_timeline(self, cursor: str | None = None) -> tuple[list[PostData], str | None]:
-        resp = await self._client.get_timeline(cursor=cursor, limit=30)
+    async def get_timeline(self, cursor: str | None = None, limit: int = 30) -> tuple[list[PostData], str | None]:
+        resp = await self._client.get_timeline(cursor=cursor, limit=limit)
         posts = []
         for item in resp.feed:
             post = item.post

@@ -1,8 +1,7 @@
-from pathlib import Path
-
 from textual.app import App
 
 from bluesky_tui.api.client import BlueskyClient
+from bluesky_tui.config import load_settings
 
 
 class BlueskyApp(App):
@@ -12,8 +11,11 @@ class BlueskyApp(App):
     def __init__(self) -> None:
         super().__init__()
         self.client = BlueskyClient()
+        self.settings: dict = load_settings()
 
     async def on_mount(self) -> None:
+        self.theme = self.settings.get("theme", "textual-dark")
+
         from bluesky_tui.config import load_credentials
 
         creds = load_credentials()

@@ -26,6 +26,7 @@ class FeedScreen(Screen):
         Binding("w", "view_on_web", "Web"),
         Binding("d", "delete_post", "Delete"),
         Binding("n", "notifications", "Notifs"),
+        Binding("s", "settings", "Settings"),
         Binding("f", "cycle_filter", "Filter"),
         Binding("space", "load_more", "More", show=False),
         Binding("R", "refresh_feed", "Refresh"),
@@ -46,6 +47,11 @@ class FeedScreen(Screen):
         yield Footer()
 
     def on_mount(self) -> None:
+        default_filter = self.app.settings.get("default_filter", "all")
+        if default_filter in FILTERS:
+            self._filter_index = FILTERS.index(default_filter)
+        if self.app.settings.get("post_density") == "compact":
+            self.add_class("compact-density")
         self._load_timeline()
 
     def _apply_filter(self, posts: list[PostData]) -> list[PostData]:
@@ -72,7 +78,8 @@ class FeedScreen(Screen):
         status = self.query_one("#status-bar", Static)
         status.update("Loading timeline...")
         try:
-            posts, cursor = await self.app.client.get_timeline()
+            limit = self.app.settings.get("posts_per_page", 30)
+            posts, cursor = await self.app.client.get_timeline(limit=limit)
             self._cursor = cursor
             self._all_posts = posts
             self._refresh_list()
@@ -245,7 +252,8 @@ class FeedScreen(Screen):
         status = self.query_one("#status-bar", Static)
         status.update("Loading more...")
         try:
-            posts, cursor = await self.app.client.get_timeline(cursor=self._cursor)
+            limit = self.app.settings.get("posts_per_page", 30)
+            posts, cursor = await self.app.client.get_timeline(cursor=self._cursor, limit=limit)
             self._cursor = cursor
             self._all_posts.extend(posts)
             filtered = self._apply_filter(posts)
@@ -262,3 +270,7 @@ class FeedScreen(Screen):
     def action_notifications(self) -> None:
         from bluesky_tui.screens.notifications import NotificationsScreen
         self.app.push_screen(NotificationsScreen())
+
+    def action_settings(self) -> None:
+        from bluesky_tui.screens.settings import SettingsScreen
+        self.app.push_screen(SettingsScreen())
