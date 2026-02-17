@@ -26,7 +26,7 @@ class SettingItem(ListItem):
         yield Static(self._render_text(), classes="setting-text")
 
     def _render_text(self) -> str:
-        return f"  {self.setting_label}    [{self.setting_value}]"
+        return f"  {self.setting_label}    \\[{self.setting_value}]"
 
     def update_value(self, value: str) -> None:
         self.setting_value = value
@@ -77,7 +77,6 @@ class SettingsScreen(Screen):
     BINDINGS = [
         Binding("j", "cursor_down", "Down", show=False),
         Binding("k", "cursor_up", "Up", show=False),
-        Binding("enter", "toggle_setting", "Change"),
         Binding("escape", "go_back", "Back"),
         Binding("q", "go_back", "Back"),
     ]
@@ -150,6 +149,10 @@ class SettingsScreen(Screen):
         if isinstance(child, SectionHeader):
             lv.action_cursor_up()
 
+    def on_list_view_selected(self, event: ListView.Selected) -> None:
+        """Handle enter key via ListView's built-in selection event."""
+        self.action_toggle_setting()
+
     def action_toggle_setting(self) -> None:
         lv = self.query_one("#settings-list", ListView)
         child = lv.highlighted_child
@@ -187,6 +190,14 @@ class SettingsScreen(Screen):
             self._settings["post_density"] = new_val
             child.update_value(new_val)
             self._save()
+            # Apply density change to all screens in the stack
+            for screen in self.app.screen_stack:
+                if screen is self:
+                    continue
+                if new_val == "compact":
+                    screen.add_class("compact-density")
+                else:
+                    screen.remove_class("compact-density")
             return
 
         if key == "default_filter":

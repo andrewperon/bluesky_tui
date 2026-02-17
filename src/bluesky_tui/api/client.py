@@ -260,8 +260,8 @@ class BlueskyClient:
             follow_uri=p.viewer.following if p.viewer else None,
         )
 
-    async def get_author_feed(self, did: str, cursor: str | None = None) -> tuple[list[PostData], str | None]:
-        resp = await self._client.get_author_feed(did, cursor=cursor, limit=30)
+    async def get_author_feed(self, did: str, cursor: str | None = None, limit: int = 30) -> tuple[list[PostData], str | None]:
+        resp = await self._client.get_author_feed(did, cursor=cursor, limit=limit)
         posts = []
         for item in resp.feed:
             post = item.post

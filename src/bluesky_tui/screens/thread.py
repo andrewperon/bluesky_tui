@@ -34,6 +34,8 @@ class ThreadScreen(Screen):
         yield Footer()
 
     def on_mount(self) -> None:
+        if self.app.settings.get("post_density") == "compact":
+            self.add_class("compact-density")
         self._load_thread()
 
     @work

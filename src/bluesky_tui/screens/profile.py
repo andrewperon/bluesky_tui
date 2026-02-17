@@ -39,6 +39,8 @@ class ProfileScreen(Screen):
         yield Footer()
 
     def on_mount(self) -> None:
+        if self.app.settings.get("post_density") == "compact":
+            self.add_class("compact-density")
         self._load_profile()
 
     @work
@@ -50,7 +52,8 @@ class ProfileScreen(Screen):
             self.mount(header, before=placeholder)
             placeholder.remove()
 
-            posts, cursor = await self.app.client.get_author_feed(self._did)
+            limit = self.app.settings.get("posts_per_page", 30)
+            posts, cursor = await self.app.client.get_author_feed(self._did, limit=limit)
             self._cursor = cursor
             self.query_one("#profile-posts", PostList).set_posts(posts)
         except Exception as e:
@@ -150,7 +153,8 @@ class ProfileScreen(Screen):
         if not self._cursor:
             return
         try:
-            posts, cursor = await self.app.client.get_author_feed(self._did, cursor=self._cursor)
+            limit = self.app.settings.get("posts_per_page", 30)
+            posts, cursor = await self.app.client.get_author_feed(self._did, cursor=self._cursor, limit=limit)
             self._cursor = cursor
             self.query_one("#profile-posts", PostList).append_posts(posts)
         except Exception as e:
